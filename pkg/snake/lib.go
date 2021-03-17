@@ -55,9 +55,9 @@ func initGame(hw string) (GameState, error) {
 	game.SnakeLenght = 2
 	game.SnakeHead = [2]int{1, 0}
 	game.SnakeTail = [2]int{0, 0}
-	game.LastArrow = "D"
+	game.LastDirection = "D"
 	game.SnakeBody = append(game.SnakeBody, game.SnakeTail, game.SnakeHead)
-	game.Food = randomFoodPosition(game.HW, game.SnakeBody)
+	game.Food, _ = randomFoodPosition(game.HW, game.SnakeBody)
 	return game, err
 }
 
@@ -65,8 +65,8 @@ func next(game GameState) {
 	var newSnakeHead point
 	for {
 		flushScreen()
-		showScoreboard(game)
-		showBoard(game)
+		showScoreboard(&game)
+		showBoard(&game)
 		newSnakeHead, err := userInput(newSnakeHead, &game)
 		if err != nil {
 			continue
@@ -75,7 +75,7 @@ func next(game GameState) {
 		if err != nil {
 			flushScreen()
 			fmt.Printf("Game Over!\n%s\n\n", err)
-			showScoreboard(game)
+			showScoreboard(&game)
 			break
 		}
 	}
@@ -93,9 +93,16 @@ func logicProcess(newPoint point, game *GameState) error {
 			if game.SnakeHead == game.Food {
 				game.Score++
 				game.SnakeLenght++
-				game.Food = randomFoodPosition(game.HW, game.SnakeBody)
 				game.SnakeBody = append(game.SnakeBody, game.SnakeHead, game.SnakeHead)
 				game.SnakeBody = game.SnakeBody[1:]
+				game.Food, err = randomFoodPosition(game.HW, game.SnakeBody)
+				if err != nil {
+					flushScreen()
+					showScoreboard(game)
+					showBoard(game)
+					fmt.Println("You WIN!")
+					os.Exit(0)
+				}
 			} else {
 				game.SnakeBody = append(game.SnakeBody, game.SnakeHead)
 				game.SnakeBody = game.SnakeBody[1:]
@@ -110,32 +117,32 @@ func logicProcess(newPoint point, game *GameState) error {
 func userInput(newSnakeHead point, game *GameState) (point, error) {
 	var err error
 	fmt.Print("L[eft], U[p], R[ight], D[own] | RE[start] |E[xit] \n\n----> ")
-	var arrow string
-	fmt.Scanln(&arrow)
-	switch strings.ToUpper(arrow) {
+	var input string
+	fmt.Scanln(&input)
+	switch strings.ToUpper(input) {
 	case "L":
-		if game.LastArrow == "R" {
+		if game.LastDirection == "R" {
 			err = errors.New("Wrong Input!")
 		}
-		game.LastArrow = "L"
+		game.LastDirection = "L"
 		newSnakeHead = point{game.SnakeHead[0], game.SnakeHead[1] - 1}
 	case "U":
-		if game.LastArrow == "D" {
+		if game.LastDirection == "D" {
 			err = errors.New("Wrong Way!")
 		}
-		game.LastArrow = "U"
+		game.LastDirection = "U"
 		newSnakeHead = point{game.SnakeHead[0] - 1, game.SnakeHead[1]}
 	case "R":
-		if game.LastArrow == "L" {
+		if game.LastDirection == "L" {
 			err = errors.New("Wrong Way!")
 		}
-		game.LastArrow = "R"
+		game.LastDirection = "R"
 		newSnakeHead = point{game.SnakeHead[0], game.SnakeHead[1] + 1}
 	case "D":
-		if game.LastArrow == "U" {
+		if game.LastDirection == "U" {
 			err = errors.New("Wrong Way!")
 		}
-		game.LastArrow = "D"
+		game.LastDirection = "D"
 		newSnakeHead = point{game.SnakeHead[0] + 1, game.SnakeHead[1]}
 	case "E":
 		flushScreen()
@@ -156,7 +163,7 @@ func outOfBoard(snakeHead, boardHW point) bool {
 	return false
 }
 
-func showScoreboard(game GameState) {
+func showScoreboard(game *GameState) {
 	fmt.Printf("GAME INFO:\n")
 	fmt.Printf(" ------------------- \n")
 	fmt.Printf("|Round      |%.5d  |\n", game.Round)
@@ -167,7 +174,7 @@ func showScoreboard(game GameState) {
 	fmt.Printf(" ------------------- \n\n")
 }
 
-func showBoard(game GameState) {
+func showBoard(game *GameState) {
 	var boardString string
 	boardString += fmt.Sprintf(" %s \n", strings.Repeat("-", game.HW[1]*2))
 	for i := 0; i < game.HW[0]; i++ {
@@ -191,11 +198,18 @@ func showBoard(game GameState) {
 	fmt.Print(boardString)
 }
 
-func randomFoodPosition(hw [2]int, snakeBody [][2]int) [2]int {
+func randomFoodPosition(hw [2]int, snakeBody [][2]int) ([2]int, error) {
+	var err error
+	var position point
+
 	for {
-		position := [2]int{rand.Intn(hw[0]), rand.Intn(hw[1])}
+		if len(snakeBody) == hw[0]*hw[1] {
+			err = errors.New("You WIN!")
+			return position, err
+		}
+		position = [2]int{rand.Intn(hw[0]), rand.Intn(hw[1])}
 		if !existPoint(position, snakeBody) {
-			return position
+			return position, err
 		}
 	}
 }
@@ -216,15 +230,15 @@ func flushScreen() {
 
 // ------- Types -------
 type GameState struct {
-	HW          [2]int
-	Score       int
-	Food        [2]int
-	Round       int
-	SnakeLenght int
-	SnakeHead   [2]int
-	SnakeTail   [2]int
-	SnakeBody   [][2]int
-	LastArrow   string
+	HW            [2]int
+	Score         int
+	Food          [2]int
+	Round         int
+	SnakeLenght   int
+	SnakeHead     [2]int
+	SnakeTail     [2]int
+	SnakeBody     [][2]int
+	LastDirection string
 }
 
 type point [2]int
